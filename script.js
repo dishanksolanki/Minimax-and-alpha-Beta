@@ -12,6 +12,16 @@ let scores = { player: 0, ai: 0, draw: 0 };
 let stats = null;        // live counters for the CURRENT search (reset every search)
 let lastSearch = null;   // result of the latest AI search, used by the modal
 const $ = id => document.getElementById(id);
+// X and O are drawn as SVG strokes (pathLength=1 lets the CSS "draw" animation trace them)
+const MARK = {
+  X: '<svg class="m" viewBox="0 0 100 100"><path pathLength="1" d="M22 22L78 78M78 22L22 78"/></svg>',
+  O: '<svg class="m" viewBox="0 0 100 100"><circle pathLength="1" cx="50" cy="50" r="29"/></svg>'
+};
+function buildPreview() {   // decorative hero board (separate from the playable one)
+  const demo = ["X","X","O",null,"O","X","O",null,null];
+  $("preview").innerHTML = demo.map((v, i) =>
+    `<div class="${v ? v.toLowerCase() : ""}${[2,4,6].includes(i) ? " win" : ""}">${v ? MARK[v] : ""}</div>`).join("");
+}
 
 /* ===== Game-state helpers ===== */
 // Returns {winner:'X'|'O'|'draw', line} when the game is over, otherwise null.
@@ -123,7 +133,7 @@ function render() {
   document.querySelectorAll(".cell").forEach((c, i) => {
     const v = board[i];
     c.className = "cell" + (v ? " " + v.toLowerCase() : "") + (i === lastMove ? " last" : "");
-    c.innerHTML = v ? `<span>${v}</span>` : "";
+    if ((c.dataset.v || "") !== (v || "")) { c.innerHTML = v ? MARK[v] : ""; c.dataset.v = v || ""; }
     c.disabled = !!v || gameOver || aiBusy;
     c.setAttribute("aria-label", `Row ${Math.floor(i/3)+1}, column ${i%3+1}, ${v || "empty"}`);
   });
@@ -245,4 +255,4 @@ $("menuBtn").addEventListener("click", () => {
 });
 $("nav").addEventListener("click", () => { $("nav").classList.remove("open"); $("menuBtn").setAttribute("aria-expanded", false); });
 
-buildBoard(); newGame(); updateScores(); drawTree(); $("diffHint").textContent = HINTS[difficulty];
+buildPreview(); buildBoard(); newGame(); updateScores(); drawTree(); $("diffHint").textContent = HINTS[difficulty];
