@@ -4,44 +4,33 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tic-Tac-Toe AI — Minimax & Alpha-Beta Pruning</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="bg-glow" aria-hidden="true"></div>
-
 <header class="site-header">
   <a class="brand" href="#home" aria-label="NEUROPLAY home">
-    <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><path d="M11 3v26M21 3v26M3 11h26M3 21h26" stroke="url(#g)" stroke-width="2.4" stroke-linecap="round"/><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#22d3ee"/><stop offset="1" stop-color="#a855f7"/></linearGradient></defs></svg>
-    <span><strong>NEUROPLAY</strong><small>AI GAME LAB</small></span>
+    <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><path d="M11 3v26M21 3v26M3 11h26M3 21h26" stroke="#8d97c2" stroke-width="2" stroke-linecap="round"/><path d="M4.5 4.5l5 5M9.5 4.5l-5 5" stroke="#3ee0ff" stroke-width="2.4" stroke-linecap="round"/><circle cx="16" cy="16" r="3.2" stroke="#a56bff" stroke-width="2.4" fill="none"/></svg>
+    <span><strong>NEUROPLAY</strong><small>AI game lab</small></span>
   </a>
   <button class="menu-btn" id="menuBtn" aria-expanded="false" aria-controls="nav" aria-label="Toggle menu"><span></span><span></span><span></span></button>
-  <nav id="nav" class="nav">
-    <a href="#home">Home</a><a href="#play">Play Game</a><a href="#how">How It Works</a><a href="#about">About AI</a>
-  </nav>
+  <nav id="nav" class="nav"><a href="#home">Home</a><a href="#play">Play Game</a><a href="#how">How It Works</a><a href="#about">About AI</a></nav>
 </header>
 
 <main>
 <section id="home" class="hero">
   <div class="hero-text">
-    <span class="badge">ARTIFICIAL INTELLIGENCE PROJECT</span>
-    <h1>Outsmart the <span class="grad">AI.</span><br>Or <span class="grad">Try</span> to.</h1>
-    <p>Experience intelligent game playing powered by Minimax and Alpha-Beta Pruning. Every move is calculated. Every decision has a strategy.</p>
-    <div class="btn-row">
-      <a class="btn primary" href="#play">Play Against AI</a>
-      <a class="btn ghost" href="#how">Explore the Algorithm</a>
-    </div>
-    <ul class="features">
-      <li>Intelligent Decision Making</li><li>Real-Time Strategy</li><li>Alpha-Beta Optimization</li>
-    </ul>
+    <p class="badge"><i></i>Artificial intelligence project</p>
+    <h1>Outsmart the AI.<span class="soft">Or try to.</span></h1>
+    <p class="lead">Experience intelligent game playing powered by Minimax and Alpha-Beta Pruning. Every move is calculated. Every decision has a strategy.</p>
+    <div class="btn-row"><a class="btn primary" href="#play">Play Against AI</a><a class="btn ghost" href="#how">Explore the Algorithm</a></div>
+    <ul class="features"><li>Intelligent Decision Making</li><li>Real-Time Strategy</li><li>Alpha-Beta Optimization</li></ul>
   </div>
   <div class="hero-art" aria-hidden="true">
-    <div class="preview-board">
-      <span class="pc x">X</span><span class="pc o">O</span><span class="pc x">X</span>
-      <span class="pc"></span><span class="pc o win">O</span><span class="pc x">X</span>
-      <span class="pc o win">O</span><span class="pc x"></span><span class="pc o win">O</span>
-    </div>
-    <div class="float-panel fp1"><small>AI STATUS</small><b>Ready to Think</b></div>
-    <div class="float-panel fp2"><small>ALGORITHM</small><b>Minimax + Alpha-Beta</b></div>
+    <div class="tag t1"><small>AI status</small><b>Ready to Think</b></div>
+    <div class="preview" id="preview"></div>
+    <div class="tag t2"><small>Algorithm</small><b>Minimax + Alpha-Beta</b></div>
   </div>
 </section>
 
@@ -49,20 +38,20 @@
   <h2>Challenge the Machine</h2>
   <p class="sub">Make your move. The AI is already thinking ahead.</p>
   <div class="game-layout">
-    <div class="board-wrap glass">
+    <div class="board-wrap">
       <div class="turn" id="turnLabel" aria-live="polite">YOUR TURN</div>
       <div class="board" id="board" role="grid" aria-label="Tic-Tac-Toe board"></div>
-      <p class="status" id="status" role="status" aria-live="polite">Make your move. You play X.</p>
+      <p class="status" id="status" role="status" aria-live="polite"></p>
     </div>
     <aside class="side">
-      <div class="glass panel">
+      <section>
         <h3>Players</h3>
         <div class="players">
           <div class="pl" id="plHuman"><span class="mark x">X</span><div><b>You</b><small>Human</small></div></div>
           <div class="pl" id="plAI"><span class="mark o">O</span><div><b>AI</b><small>Opponent</small></div></div>
         </div>
-      </div>
-      <div class="glass panel">
+      </section>
+      <section>
         <h3>Difficulty</h3>
         <div class="seg" role="radiogroup" aria-label="Difficulty">
           <button role="radio" aria-checked="false" data-d="easy">Easy</button>
@@ -70,19 +59,16 @@
           <button role="radio" aria-checked="true" data-d="unbeatable" class="on">Unbeatable</button>
         </div>
         <p class="hint" id="diffHint"></p>
-      </div>
-      <div class="glass panel">
+      </section>
+      <section>
         <h3>Scoreboard</h3>
         <div class="scores">
-          <div><b id="sPlayer">0</b><small>Player Wins</small></div>
-          <div><b id="sAI">0</b><small>AI Wins</small></div>
+          <div><b id="sPlayer" class="cx">0</b><small>Player Wins</small></div>
+          <div><b id="sAI" class="cp">0</b><small>AI Wins</small></div>
           <div><b id="sDraw">0</b><small>Draws</small></div>
         </div>
-        <div class="btn-row tight">
-          <button class="btn primary" id="newGame">New Game</button>
-          <button class="btn ghost" id="resetScore">Reset Score</button>
-        </div>
-      </div>
+        <div class="btn-row tight"><button class="btn primary" id="newGame">New Game</button><button class="btn ghost" id="resetScore">Reset Score</button></div>
+      </section>
     </aside>
   </div>
 </section>
@@ -90,7 +76,7 @@
 <section id="mind" class="section">
   <h2>Inside the AI's Mind</h2>
   <p class="sub">Explore the logic behind every decision.</p>
-  <div class="metrics">
+  <div class="readout">
     <div class="metric wide"><small>Algorithm</small><b>Minimax + Alpha-Beta Pruning</b></div>
     <div class="metric"><small>Nodes Evaluated</small><b id="mNodes">—</b></div>
     <div class="metric"><small>Branches Pruned</small><b id="mPruned">—</b></div>
@@ -103,11 +89,7 @@
 </section>
 
 <dialog id="modal" aria-labelledby="mTitle">
-  <div class="modal-in">
-    <h3 id="mTitle">Latest AI decision</h3>
-    <div id="mBody"></div>
-    <button class="btn ghost" id="closeModal">Close</button>
-  </div>
+  <div class="modal-in"><h3 id="mTitle">Latest AI decision</h3><div id="mBody"></div><button class="btn ghost" id="closeModal">Close</button></div>
 </dialog>
 
 <section id="how" class="section">
@@ -117,22 +99,20 @@
     <article class="step s2"><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg><h3>Evaluate</h3><p>Minimax determines the outcome of possible game states.</p></article>
     <article class="step s3"><svg viewBox="0 0 24 24"><path d="M4 20L20 4M14 4h6v6"/></svg><h3>Optimize</h3><p>Alpha-Beta Pruning skips branches that cannot change the optimal decision.</p></article>
   </div>
-  <div class="glass tree-box">
-    <h3>Illustrative example <small>(fixed demo tree — not live game data)</small></h3>
+  <div class="tree-box">
+    <h3>Illustrative example <small>— a fixed demo tree, not live game data</small></h3>
     <svg id="tree" viewBox="0 0 500 270" role="img" aria-label="Alpha-beta pruning example tree">
-      <g class="edges"><line x1="250" y1="55" x2="130" y2="120"/><line x1="250" y1="55" x2="370" y2="120"/>
-        <line x1="130" y1="150" x2="70" y2="215"/><line x1="130" y1="150" x2="190" y2="215"/>
-        <line x1="370" y1="150" x2="310" y2="215"/><line class="e4" x1="370" y1="150" x2="430" y2="215"/></g>
-      <g class="nd"><rect x="200" y="25" width="100" height="32" rx="8"/><text id="tR" x="250" y="46"></text></g>
-      <g class="nd"><rect x="80" y="120" width="100" height="32" rx="8"/><text id="tA" x="130" y="141"></text></g>
-      <g class="nd"><rect x="320" y="120" width="100" height="32" rx="8"/><text id="tB" x="370" y="141"></text></g>
+      <g class="edges"><line x1="250" y1="55" x2="130" y2="120"/><line x1="250" y1="55" x2="370" y2="120"/><line x1="130" y1="150" x2="70" y2="215"/><line x1="130" y1="150" x2="190" y2="215"/><line x1="370" y1="150" x2="310" y2="215"/><line class="e4" x1="370" y1="150" x2="430" y2="215"/></g>
+      <g class="nd"><rect x="190" y="25" width="120" height="32" rx="8"/><text id="tR" x="250" y="46"></text></g>
+      <g class="nd"><rect x="70" y="120" width="120" height="32" rx="8"/><text id="tA" x="130" y="141"></text></g>
+      <g class="nd"><rect x="310" y="120" width="120" height="32" rx="8"/><text id="tB" x="370" y="141"></text></g>
       <g class="lf" id="l0"><rect x="45" y="215" width="50" height="30" rx="15"/><text x="70" y="235">3</text></g>
       <g class="lf" id="l1"><rect x="165" y="215" width="50" height="30" rx="15"/><text x="190" y="235">5</text></g>
       <g class="lf" id="l2"><rect x="285" y="215" width="50" height="30" rx="15"/><text x="310" y="235">2</text></g>
       <g class="lf" id="l3"><rect x="405" y="215" width="50" height="30" rx="15"/><text x="430" y="235">9</text></g>
     </svg>
     <p class="caption" id="treeCap" aria-live="polite"></p>
-    <div class="btn-row tight"><button class="btn ghost" id="treePrev">Back</button><button class="btn primary" id="treeNext">Next step</button></div>
+    <div class="btn-row tight center"><button class="btn ghost" id="treePrev">Back</button><button class="btn primary" id="treeNext">Next step</button></div>
   </div>
 </section>
 
@@ -144,9 +124,9 @@
     <div><h4>What is MIN?</h4><p>The player (the human) that tries to minimize the evaluation score.</p></div>
     <div><h4>What is Alpha?</h4><p>The best value MAX can guarantee so far along the current path.</p></div>
     <div><h4>What is Beta?</h4><p>The best value MIN can guarantee so far along the current path.</p></div>
-    <div><h4>What is Alpha-Beta Pruning?</h4><p>An optimization that stops exploring a branch once it can no longer change the final decision, giving the same answer as Minimax with less work.</p></div>
+    <div><h4>What is Alpha-Beta Pruning?</h4><p>An optimization that stops exploring a branch once it can no longer change the final decision. It gives the same answer as Minimax with less work.</p></div>
     <div><h4>Pruning condition</h4><p><code>alpha &gt;= beta</code></p></div>
-    <div class="wide"><h4>Time complexity</h4><p>Plain Minimax: <code>O(b^d)</code>. Alpha-Beta in the best case with favorable move ordering: <code>O(b^(d/2))</code>. The real number of nodes explored depends on the board position and move ordering.</p></div>
+    <div><h4>Time complexity</h4><p>Plain Minimax: <code>O(b^d)</code>. Alpha-Beta in the best case with favorable move ordering: <code>O(b^(d/2))</code>. The real number of nodes explored depends on the board position and move ordering.</p></div>
   </div>
 </section>
 </main>
