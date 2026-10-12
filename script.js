@@ -14,9 +14,30 @@ let lastSearch = null;   // result of the latest AI search, used by the modal
 const $ = id => document.getElementById(id);
 // X and O are drawn as SVG strokes (pathLength=1 lets the CSS "draw" animation trace them)
 const MARK = {
-  X: '<svg class="m" viewBox="0 0 100 100"><path class="sh" d="M22 22L78 78M78 22L22 78"/><path class="fg" d="M22 22L78 78M78 22L22 78"/></svg>',
-  O: '<svg class="m" viewBox="0 0 100 100"><circle class="sh" cx="50" cy="50" r="29"/><circle class="fg" cx="50" cy="50" r="29"/></svg>'
+  X: '<svg class="m" viewBox="0 0 100 100"><path class="fg" pathLength="1" d="M26 26L74 74M74 26L26 74"/></svg>',
+  O: '<svg class="m" viewBox="0 0 100 100"><circle class="fg" pathLength="1" cx="50" cy="50" r="27"/></svg>'
 };
+// Draws a line through the three winning cells (cell centres in a 300x300 box)
+function showStrike(line, who) {
+  const pt = i => [(i % 3) * 100 + 50, Math.floor(i / 3) * 100 + 50];
+  const [x1, y1] = pt(line[0]), [x2, y2] = pt(line[2]);
+  const len = Math.hypot(x2 - x1, y2 - y1), ux = (x2 - x1) / len * 30, uy = (y2 - y1) / len * 30;
+  const el = $("strike");
+  el.setAttribute("x1", x1 - ux); el.setAttribute("y1", y1 - uy);
+  el.setAttribute("x2", x2 + ux); el.setAttribute("y2", y2 + uy);
+  el.setAttribute("class", "on " + (who === HUMAN ? "wx" : "wo"));
+}
+// Animated number for the dashboard (instant when reduced motion is requested)
+function setNum(id, value) {
+  const el = $(id);
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) { el.textContent = value; return; }
+  const t0 = performance.now();
+  (function frame(t) {
+    const k = Math.min(1, (t - t0) / 600);
+    el.textContent = Math.round(value * (1 - Math.pow(1 - k, 3)));
+    if (k < 1) requestAnimationFrame(frame);
+  })(t0);
+}
 function buildPreview() {   // decorative hero board (separate from the playable one)
   const demo = ["X","X","O",null,"O","X","O",null,null];
   $("preview").innerHTML = demo.map((v, i) =>
@@ -167,6 +188,7 @@ function finishIfOver() {
   if (!r) { render(); return false; }
   gameOver = true; aiBusy = false; render();
   r.line.forEach(i => document.querySelectorAll(".cell")[i].classList.add("win"));
+  if (r.line.length) showStrike(r.line, r.winner);
   if (r.winner === HUMAN) { scores.player++; say("Victory! You outsmarted the AI."); }
   else if (r.winner === AI) { scores.ai++; say("AI Wins! Better luck next time."); }
   else { scores.draw++; say("It's a Draw!"); }
@@ -174,14 +196,14 @@ function finishIfOver() {
   const kind = r.winner === HUMAN ? "win" : r.winner === AI ? "lose" : "draw";
   resultTimer = setTimeout(() => {          // short delay so the winning line is visible first
     $("result").className = "result " + kind;
-    $("resTitle").textContent = { win: "VICTORY!", lose: "DEFEAT", draw: "DRAW" }[kind];
+    $("resTitle").textContent = { win: "Victory", lose: "Defeat", draw: "Draw" }[kind];
     $("resMsg").textContent = $("status").textContent;
     $("result").hidden = false; $("again").focus();
-  }, 900);
+  }, 1200);
   return true;
 }
 function newGame() {
-  clearTimeout(aiTimer); clearTimeout(resultTimer); $("result").hidden = true;
+  clearTimeout(aiTimer); clearTimeout(resultTimer); $("result").hidden = true; $("strike").setAttribute("class", "");
   board = Array(9).fill(null); gameOver = false; aiBusy = false; lastMove = null;
   setTurn(false); say("Make your move. You play X."); render();
 }
@@ -195,8 +217,8 @@ function showStats() {
     ["mNodes","mPruned","mDepth","mScore"].forEach(id => $(id).textContent = "N/A");
     return;
   }
-  $("mNodes").textContent = s.nodes; $("mPruned").textContent = s.pruned;
-  $("mDepth").textContent = s.maxDepth; $("mScore").textContent = s.score;
+  setNum("mNodes", s.nodes); setNum("mPruned", s.pruned);
+  setNum("mDepth", s.maxDepth); setNum("mScore", s.score);
 }
 function explain() {
   const s = lastSearch, rc = i => `R${Math.floor(i/3)+1} C${i%3+1}`;
@@ -241,6 +263,7 @@ function drawTree() {
 /* ===== Wiring ===== */
 document.querySelectorAll(".seg button").forEach(b => b.addEventListener("click", () => {
   difficulty = b.dataset.d;
+  $("seg").style.setProperty("--i", [...b.parentNode.querySelectorAll("button")].indexOf(b));   // slides the thumb
   document.querySelectorAll(".seg button").forEach(x => { x.classList.toggle("on", x === b); x.setAttribute("aria-checked", x === b); });
   $("diffHint").textContent = HINTS[difficulty];
   newGame();                                   // changing difficulty starts a fresh round (scores kept)
@@ -264,3 +287,13 @@ $("menuBtn").addEventListener("click", () => {
 $("nav").addEventListener("click", () => { $("nav").classList.remove("open"); $("menuBtn").setAttribute("aria-expanded", false); });
 
 buildPreview(); buildBoard(); newGame(); updateScores(); drawTree(); $("diffHint").textContent = HINTS[difficulty];
+
+/* Header background on scroll + highlight the nav link of the section in view */
+const hdr = $("hdr");
+addEventListener("scroll", () => hdr.classList.toggle("scrolled", scrollY > 8), { passive: true });
+const spy = new IntersectionObserver(entries => entries.forEach(e => {
+  if (!e.isIntersecting) return;
+  const id = e.target.id === "mind" ? "play" : e.target.id;
+  document.querySelectorAll(".nav a").forEach(a => a.classList.toggle("active", a.getAttribute("href") === "#" + id));
+}), { rootMargin: "-45% 0px -50% 0px" });
+document.querySelectorAll("main section").forEach(sec => spy.observe(sec));
