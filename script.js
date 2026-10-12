@@ -7,15 +7,15 @@ const HINTS = {
   medium: "The AI uses a limited-depth Minimax search (depth 2) with Alpha-Beta Pruning.",
   unbeatable: "The AI uses full-depth Minimax with Alpha-Beta Pruning and optimal play."
 };
-let board, gameOver, aiBusy, aiTimer, lastMove, difficulty = "unbeatable";
+let board, gameOver, aiBusy, aiTimer, resultTimer, lastMove, difficulty = "unbeatable";
 let scores = { player: 0, ai: 0, draw: 0 };
 let stats = null;        // live counters for the CURRENT search (reset every search)
 let lastSearch = null;   // result of the latest AI search, used by the modal
 const $ = id => document.getElementById(id);
 // X and O are drawn as SVG strokes (pathLength=1 lets the CSS "draw" animation trace them)
 const MARK = {
-  X: '<svg class="m" viewBox="0 0 100 100"><path pathLength="1" d="M22 22L78 78M78 22L22 78"/></svg>',
-  O: '<svg class="m" viewBox="0 0 100 100"><circle pathLength="1" cx="50" cy="50" r="29"/></svg>'
+  X: '<svg class="m" viewBox="0 0 100 100"><path class="sh" d="M22 22L78 78M78 22L22 78"/><path class="fg" d="M22 22L78 78M78 22L22 78"/></svg>',
+  O: '<svg class="m" viewBox="0 0 100 100"><circle class="sh" cx="50" cy="50" r="29"/><circle class="fg" cx="50" cy="50" r="29"/></svg>'
 };
 function buildPreview() {   // decorative hero board (separate from the playable one)
   const demo = ["X","X","O",null,"O","X","O",null,null];
@@ -171,10 +171,17 @@ function finishIfOver() {
   else if (r.winner === AI) { scores.ai++; say("AI Wins! Better luck next time."); }
   else { scores.draw++; say("It's a Draw!"); }
   updateScores(); setTurn(false); $("turnLabel").textContent = "GAME OVER";
+  const kind = r.winner === HUMAN ? "win" : r.winner === AI ? "lose" : "draw";
+  resultTimer = setTimeout(() => {          // short delay so the winning line is visible first
+    $("result").className = "result " + kind;
+    $("resTitle").textContent = { win: "VICTORY!", lose: "DEFEAT", draw: "DRAW" }[kind];
+    $("resMsg").textContent = $("status").textContent;
+    $("result").hidden = false; $("again").focus();
+  }, 900);
   return true;
 }
 function newGame() {
-  clearTimeout(aiTimer);
+  clearTimeout(aiTimer); clearTimeout(resultTimer); $("result").hidden = true;
   board = Array(9).fill(null); gameOver = false; aiBusy = false; lastMove = null;
   setTurn(false); say("Make your move. You play X."); render();
 }
@@ -239,6 +246,7 @@ document.querySelectorAll(".seg button").forEach(b => b.addEventListener("click"
   newGame();                                   // changing difficulty starts a fresh round (scores kept)
 }));
 $("newGame").addEventListener("click", newGame);
+$("again").addEventListener("click", newGame);
 let resetArmed = false, resetTimer;
 $("resetScore").addEventListener("click", e => {  // two-click confirmation, no popup
   if (!resetArmed) { resetArmed = true; e.target.textContent = "Click again to confirm";
