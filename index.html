@@ -5,14 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tic-Tac-Toe AI — Minimax & Alpha-Beta Pruning</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><symbol id="bot" viewBox="0 0 64 64">
+<path d="M32 4v10" stroke="#060a1f" stroke-width="5" stroke-linecap="round"/><circle cx="32" cy="6" r="4.5" fill="#ffd23f" stroke="#060a1f" stroke-width="3"/>
+<rect x="6" y="14" width="52" height="42" rx="14" fill="#c9a2ff" stroke="#060a1f" stroke-width="4"/><rect x="13" y="22" width="38" height="24" rx="9" fill="#150f3a"/>
+<circle class="eye" cx="24" cy="34" r="5" fill="#43e6ff"/><circle class="eye" cx="40" cy="34" r="5" fill="#43e6ff"/>
+<path d="M26 42q6 4 12 0" stroke="#43e6ff" stroke-width="3" fill="none" stroke-linecap="round"/></symbol></svg>
+
 <header class="site-header">
   <a class="brand" href="#home" aria-label="NEUROPLAY home">
-    <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><path d="M11 3v26M21 3v26M3 11h26M3 21h26" stroke="#8d97c2" stroke-width="2" stroke-linecap="round"/><path d="M4.5 4.5l5 5M9.5 4.5l-5 5" stroke="#3ee0ff" stroke-width="2.4" stroke-linecap="round"/><circle cx="16" cy="16" r="3.2" stroke="#a56bff" stroke-width="2.4" fill="none"/></svg>
-    <span><strong>NEUROPLAY</strong><small>AI game lab</small></span>
+    <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><rect x="1" y="1" width="30" height="30" rx="9" fill="#1c2757" stroke="#060a1f" stroke-width="2"/><path d="M11 6v20M21 6v20M6 11h20M6 21h20" stroke="#5b6ab0" stroke-width="2" stroke-linecap="round"/><path d="M7 7l3 3M10 7l-3 3" stroke="#43e6ff" stroke-width="2.4" stroke-linecap="round"/><circle cx="16" cy="16" r="2.6" stroke="#b57bff" stroke-width="2.4" fill="none"/></svg>
+    <span><strong>NEUROPLAY</strong><small>AI GAME LAB</small></span>
   </a>
   <button class="menu-btn" id="menuBtn" aria-expanded="false" aria-controls="nav" aria-label="Toggle menu"><span></span><span></span><span></span></button>
   <nav id="nav" class="nav"><a href="#home">Home</a><a href="#play">Play Game</a><a href="#how">How It Works</a><a href="#about">About AI</a></nav>
@@ -21,54 +27,45 @@
 <main>
 <section id="home" class="hero">
   <div class="hero-text">
-    <p class="badge"><i></i>Artificial intelligence project</p>
-    <h1>Outsmart the AI.<span class="soft">Or try to.</span></h1>
+    <p class="badge">ARTIFICIAL INTELLIGENCE PROJECT</p>
+    <h1>Outsmart the AI.<span>Or Try to.</span></h1>
     <p class="lead">Experience intelligent game playing powered by Minimax and Alpha-Beta Pruning. Every move is calculated. Every decision has a strategy.</p>
-    <div class="btn-row"><a class="btn primary" href="#play">Play Against AI</a><a class="btn ghost" href="#how">Explore the Algorithm</a></div>
+    <div class="btn-row"><a class="btn primary big" href="#play">Play Against AI</a><a class="btn dark big" href="#how">Explore the Algorithm</a></div>
     <ul class="features"><li>Intelligent Decision Making</li><li>Real-Time Strategy</li><li>Alpha-Beta Optimization</li></ul>
   </div>
   <div class="hero-art" aria-hidden="true">
-    <div class="tag t1"><small>AI status</small><b>Ready to Think</b></div>
+    <div class="tag t1"><small>AI STATUS</small><b>Ready to Think</b></div>
     <div class="preview" id="preview"></div>
-    <div class="tag t2"><small>Algorithm</small><b>Minimax + Alpha-Beta</b></div>
+    <svg class="mascot"><use href="#bot"/></svg>
+    <div class="tag t2"><small>ALGORITHM</small><b>Minimax + Alpha-Beta</b></div>
   </div>
 </section>
 
 <section id="play" class="section">
   <h2>Challenge the Machine</h2>
   <p class="sub">Make your move. The AI is already thinking ahead.</p>
+  <div class="hud">
+    <div class="pcard" id="plHuman"><div class="av x">X</div><div class="pinfo"><b>You</b><small>Human</small></div><div class="pscore"><b id="sPlayer">0</b><small>Player Wins</small></div></div>
+    <div class="vs"><div class="turn" id="turnLabel" aria-live="polite">YOUR TURN</div><div class="draws"><b id="sDraw">0</b> <small>Draws</small></div></div>
+    <div class="pcard ai" id="plAI"><div class="pscore"><b id="sAI">0</b><small>AI Wins</small></div><div class="pinfo"><b>AI</b><small>Opponent</small></div><div class="av o"><svg><use href="#bot"/></svg></div></div>
+  </div>
   <div class="game-layout">
-    <div class="board-wrap">
-      <div class="turn" id="turnLabel" aria-live="polite">YOUR TURN</div>
+    <div class="board-box panel">
       <div class="board" id="board" role="grid" aria-label="Tic-Tac-Toe board"></div>
-      <p class="status" id="status" role="status" aria-live="polite"></p>
+      <div class="result" id="result" hidden><b id="resTitle"></b><p id="resMsg"></p><button class="btn primary big" id="again">Play Again</button></div>
     </div>
     <aside class="side">
-      <section>
-        <h3>Players</h3>
-        <div class="players">
-          <div class="pl" id="plHuman"><span class="mark x">X</span><div><b>You</b><small>Human</small></div></div>
-          <div class="pl" id="plAI"><span class="mark o">O</span><div><b>AI</b><small>Opponent</small></div></div>
-        </div>
-      </section>
-      <section>
+      <div class="panel">
         <h3>Difficulty</h3>
         <div class="seg" role="radiogroup" aria-label="Difficulty">
-          <button role="radio" aria-checked="false" data-d="easy">Easy</button>
-          <button role="radio" aria-checked="false" data-d="medium">Medium</button>
-          <button role="radio" aria-checked="true" data-d="unbeatable" class="on">Unbeatable</button>
+          <button role="radio" aria-checked="false" data-d="easy">Easy<i>★</i></button>
+          <button role="radio" aria-checked="false" data-d="medium">Medium<i>★★</i></button>
+          <button role="radio" aria-checked="true" data-d="unbeatable" class="on">Unbeatable<i>★★★</i></button>
         </div>
         <p class="hint" id="diffHint"></p>
-      </section>
-      <section>
-        <h3>Scoreboard</h3>
-        <div class="scores">
-          <div><b id="sPlayer" class="cx">0</b><small>Player Wins</small></div>
-          <div><b id="sAI" class="cp">0</b><small>AI Wins</small></div>
-          <div><b id="sDraw">0</b><small>Draws</small></div>
-        </div>
-        <div class="btn-row tight"><button class="btn primary" id="newGame">New Game</button><button class="btn ghost" id="resetScore">Reset Score</button></div>
-      </section>
+      </div>
+      <div class="panel msg"><small>GAME STATUS</small><p class="status" id="status" role="status" aria-live="polite"></p></div>
+      <div class="btn-row tight"><button class="btn primary big" id="newGame">New Game</button><button class="btn dark big" id="resetScore">Reset Score</button></div>
     </aside>
   </div>
 </section>
@@ -77,19 +74,19 @@
   <h2>Inside the AI's Mind</h2>
   <p class="sub">Explore the logic behind every decision.</p>
   <div class="readout">
-    <div class="metric wide"><small>Algorithm</small><b>Minimax + Alpha-Beta Pruning</b></div>
-    <div class="metric"><small>Nodes Evaluated</small><b id="mNodes">—</b></div>
-    <div class="metric"><small>Branches Pruned</small><b id="mPruned">—</b></div>
-    <div class="metric"><small>Search Depth</small><b id="mDepth">—</b></div>
-    <div class="metric"><small>Selected Move</small><b id="mMove">—</b></div>
-    <div class="metric"><small>Minimax Score</small><b id="mScore">—</b></div>
+    <div class="metric wide"><small>ALGORITHM</small><b>Minimax + Alpha-Beta Pruning</b></div>
+    <div class="metric"><small>NODES EVALUATED</small><b id="mNodes">—</b></div>
+    <div class="metric"><small>BRANCHES PRUNED</small><b id="mPruned">—</b></div>
+    <div class="metric"><small>SEARCH DEPTH</small><b id="mDepth">—</b></div>
+    <div class="metric"><small>SELECTED MOVE</small><b id="mMove">—</b></div>
+    <div class="metric"><small>MINIMAX SCORE</small><b id="mScore">—</b></div>
   </div>
   <p class="empty" id="mEmpty">Search statistics will appear after the AI evaluates the board.</p>
-  <button class="btn primary" id="explainBtn" disabled>Explore AI Decision</button>
+  <button class="btn primary big" id="explainBtn" disabled>Explore AI Decision</button>
 </section>
 
 <dialog id="modal" aria-labelledby="mTitle">
-  <div class="modal-in"><h3 id="mTitle">Latest AI decision</h3><div id="mBody"></div><button class="btn ghost" id="closeModal">Close</button></div>
+  <div class="modal-in"><h3 id="mTitle">Latest AI decision</h3><div id="mBody"></div><button class="btn dark" id="closeModal">Close</button></div>
 </dialog>
 
 <section id="how" class="section">
@@ -99,20 +96,20 @@
     <article class="step s2"><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg><h3>Evaluate</h3><p>Minimax determines the outcome of possible game states.</p></article>
     <article class="step s3"><svg viewBox="0 0 24 24"><path d="M4 20L20 4M14 4h6v6"/></svg><h3>Optimize</h3><p>Alpha-Beta Pruning skips branches that cannot change the optimal decision.</p></article>
   </div>
-  <div class="tree-box">
-    <h3>Illustrative example <small>— a fixed demo tree, not live game data</small></h3>
+  <div class="tree-box panel">
+    <h3>Illustrative example <small>(a fixed demo tree, not live game data)</small></h3>
     <svg id="tree" viewBox="0 0 500 270" role="img" aria-label="Alpha-beta pruning example tree">
       <g class="edges"><line x1="250" y1="55" x2="130" y2="120"/><line x1="250" y1="55" x2="370" y2="120"/><line x1="130" y1="150" x2="70" y2="215"/><line x1="130" y1="150" x2="190" y2="215"/><line x1="370" y1="150" x2="310" y2="215"/><line class="e4" x1="370" y1="150" x2="430" y2="215"/></g>
-      <g class="nd"><rect x="190" y="25" width="120" height="32" rx="8"/><text id="tR" x="250" y="46"></text></g>
-      <g class="nd"><rect x="70" y="120" width="120" height="32" rx="8"/><text id="tA" x="130" y="141"></text></g>
-      <g class="nd"><rect x="310" y="120" width="120" height="32" rx="8"/><text id="tB" x="370" y="141"></text></g>
+      <g class="nd"><rect x="190" y="25" width="120" height="32" rx="10"/><text id="tR" x="250" y="46"></text></g>
+      <g class="nd"><rect x="70" y="120" width="120" height="32" rx="10"/><text id="tA" x="130" y="141"></text></g>
+      <g class="nd"><rect x="310" y="120" width="120" height="32" rx="10"/><text id="tB" x="370" y="141"></text></g>
       <g class="lf" id="l0"><rect x="45" y="215" width="50" height="30" rx="15"/><text x="70" y="235">3</text></g>
       <g class="lf" id="l1"><rect x="165" y="215" width="50" height="30" rx="15"/><text x="190" y="235">5</text></g>
       <g class="lf" id="l2"><rect x="285" y="215" width="50" height="30" rx="15"/><text x="310" y="235">2</text></g>
       <g class="lf" id="l3"><rect x="405" y="215" width="50" height="30" rx="15"/><text x="430" y="235">9</text></g>
     </svg>
     <p class="caption" id="treeCap" aria-live="polite"></p>
-    <div class="btn-row tight center"><button class="btn ghost" id="treePrev">Back</button><button class="btn primary" id="treeNext">Next step</button></div>
+    <div class="btn-row tight center"><button class="btn dark" id="treePrev">Back</button><button class="btn primary" id="treeNext">Next step</button></div>
   </div>
 </section>
 
