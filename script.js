@@ -1,150 +1,299 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Tic-Tac-Toe AI — Minimax & Alpha-Beta Pruning</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
-</head>
-<body>
-<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
-<linearGradient id="gx" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff63a9"/><stop offset="1" stop-color="#ff7a45"/></linearGradient>
-<linearGradient id="go" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3d7cff"/><stop offset="1" stop-color="#12cfff"/></linearGradient></defs></svg>
+"use strict";
+/* ===== Constants & state ===== */
+const HUMAN = "X", AI = "O";
+const WIN_LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+const HINTS = {
+  easy: "The AI chooses mostly random legal moves.",
+  medium: "The AI uses a limited-depth Minimax search (depth 2) with Alpha-Beta Pruning.",
+  unbeatable: "The AI uses full-depth Minimax with Alpha-Beta Pruning and optimal play."
+};
+let board, gameOver, aiBusy, aiTimer, resultTimer, lastMove, difficulty = "unbeatable";
+let scores = { player: 0, ai: 0, draw: 0 };
+let stats = null;        // live counters for the CURRENT search (reset every search)
+let lastSearch = null;   // result of the latest AI search, used by the modal
+const $ = id => document.getElementById(id);
+// X and O are drawn as SVG strokes (pathLength=1 lets the CSS "draw" animation trace them)
+const MARK = {
+  X: '<svg class="m" viewBox="0 0 100 100"><path class="fg" pathLength="1" d="M26 26L74 74M74 26L26 74"/></svg>',
+  O: '<svg class="m" viewBox="0 0 100 100"><circle class="fg" pathLength="1" cx="50" cy="50" r="27"/></svg>'
+};
+// Draws a line through the three winning cells (cell centres in a 300x300 box)
+function showStrike(line, who) {
+  const pt = i => [(i % 3) * 100 + 50, Math.floor(i / 3) * 100 + 50];
+  const [x1, y1] = pt(line[0]), [x2, y2] = pt(line[2]);
+  const len = Math.hypot(x2 - x1, y2 - y1), ux = (x2 - x1) / len * 30, uy = (y2 - y1) / len * 30;
+  const el = $("strike");
+  el.setAttribute("x1", x1 - ux); el.setAttribute("y1", y1 - uy);
+  el.setAttribute("x2", x2 + ux); el.setAttribute("y2", y2 + uy);
+  el.setAttribute("class", "on " + (who === HUMAN ? "wx" : "wo"));
+}
+// Animated number for the dashboard (instant when reduced motion is requested)
+function setNum(id, value) {
+  const el = $(id);
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) { el.textContent = value; return; }
+  const t0 = performance.now();
+  (function frame(t) {
+    const k = Math.min(1, (t - t0) / 600);
+    el.textContent = Math.round(value * (1 - Math.pow(1 - k, 3)));
+    if (k < 1) requestAnimationFrame(frame);
+  })(t0);
+}
+function buildPreview() {   // decorative hero board (separate from the playable one)
+  const demo = ["X","X","O",null,"O","X","O",null,null];
+  $("preview").innerHTML = demo.map((v, i) =>
+    `<div class="${v ? v.toLowerCase() : ""}${[2,4,6].includes(i) ? " win" : ""}">${v ? MARK[v] : ""}</div>`).join("");
+}
 
-<header class="site-header" id="hdr">
-  <a class="brand" href="#home" aria-label="NEUROPLAY home">
-    <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><path d="M12 4v24M20 4v24M4 12h24M4 20h24" stroke="#c5c0ee" stroke-width="1.6" stroke-linecap="round"/><path d="M5.5 5.5l5 5M10.5 5.5l-5 5" stroke="url(#gx)" stroke-width="2.2" stroke-linecap="round"/><circle cx="16" cy="16" r="3" stroke="url(#go)" stroke-width="2.2" fill="none"/></svg>
-    <span><strong>NEUROPLAY</strong><small>AI game lab</small></span>
-  </a>
-  <button class="menu-btn" id="menuBtn" aria-expanded="false" aria-controls="nav" aria-label="Toggle menu"><span></span><span></span></button>
-  <nav id="nav" class="nav"><a href="#home">Home</a><a href="#play">Play Game</a><a href="#how">How It Works</a><a href="#about">About AI</a></nav>
-</header>
+/* ===== Game-state helpers ===== */
+// Returns {winner:'X'|'O'|'draw', line} when the game is over, otherwise null.
+function checkWinner(b) {
+  for (const line of WIN_LINES) {
+    const [a, c, d] = line;
+    if (b[a] && b[a] === b[c] && b[a] === b[d]) return { winner: b[a], line };
+  }
+  return b.includes(null) ? null : { winner: "draw", line: [] };
+}
+function getAvailableMoves(b) {
+  const moves = [];
+  b.forEach((v, i) => { if (v === null) moves.push(i); });
+  return moves;
+}
+// Terminal evaluation from the AI's (MAX) point of view. Depth is subtracted so
+// the AI prefers faster wins and delays inevitable losses. Returns null if not terminal.
+function evaluateBoard(b, depth) {
+  const result = checkWinner(b);
+  if (!result) return null;
+  if (result.winner === AI) return 10 - depth;
+  if (result.winner === HUMAN) return depth - 10;
+  return 0;
+}
 
-<main>
-<section id="home" class="hero">
-  <div class="hero-text">
-    <p class="badge"><i></i>Artificial intelligence project</p>
-    <h1>Outsmart the AI.<em>Or try to.</em></h1>
-    <p class="lead">Experience intelligent game playing powered by Minimax and Alpha-Beta Pruning. Every move is calculated. Every decision has a strategy.</p>
-    <div class="btn-row"><a class="btn primary" href="#play">Play Against AI</a><a class="btn ghost" href="#how">Explore the Algorithm</a></div>
-    <ul class="features"><li>Intelligent Decision Making</li><li>Real-Time Strategy</li><li>Alpha-Beta Optimization</li></ul>
-  </div>
-  <div class="hero-art" aria-hidden="true">
-    <div class="tag t1"><small>AI status</small><b>Ready to Think</b></div>
-    <div class="pwrap"><div class="preview" id="preview"></div>
-      <svg class="strike" viewBox="0 0 300 300"><line class="on wo" pathLength="1" x1="284" y1="16" x2="16" y2="284"/></svg></div>
-    <div class="tag t2"><small>Algorithm</small><b>Minimax + Alpha-Beta</b></div>
-  </div>
-</section>
+/* ===== MINIMAX WITH ALPHA-BETA PRUNING ===== */
+// isMaximizing=true -> AI's turn (MAX), false -> human's turn (MIN).
+// alpha = best value MAX can already guarantee; beta = best value MIN can already guarantee.
+function minimax(b, depth, isMaximizing, alpha, beta, maxDepth) {
+  stats.nodes++;
+  stats.maxDepth = Math.max(stats.maxDepth, depth);
+  const terminal = evaluateBoard(b, depth);
+  if (terminal !== null) return terminal;
+  if (depth >= maxDepth) return 0;            // depth limit (Easy/Medium): neutral estimate
 
-<section id="play" class="section">
-  <h2>Challenge the Machine</h2>
-  <p class="sub">Make your move. The AI is already thinking ahead.</p>
-  <div class="game-layout">
-    <div class="board-box panel">
-      <div class="turn" id="turnLabel" aria-live="polite">YOUR TURN</div>
-      <div class="stage">
-        <div class="board" id="board" role="grid" aria-label="Tic-Tac-Toe board"></div>
-        <svg class="strike" viewBox="0 0 300 300" aria-hidden="true"><line id="strike" pathLength="1" x1="0" y1="0" x2="0" y2="0"/></svg>
-      </div>
-      <p class="status" id="status" role="status" aria-live="polite"></p>
-      <div class="result" id="result" hidden><b id="resTitle"></b><p id="resMsg"></p><button class="btn primary" id="again">Play again</button></div>
-    </div>
-    <aside class="side panel">
-      <section>
-        <h3>Players</h3>
-        <div class="players">
-          <div class="pl" id="plHuman"><span class="mark x">X</span><div><b>You</b><small>Human player</small></div><i class="dot"></i></div>
-          <div class="pl" id="plAI"><span class="mark o">O</span><div><b>AI</b><small>Opponent</small></div><i class="dot"></i></div>
-        </div>
-      </section>
-      <section>
-        <h3>Difficulty</h3>
-        <div class="seg" id="seg" role="radiogroup" aria-label="Difficulty"><span class="thumb"></span>
-          <button role="radio" aria-checked="false" data-d="easy">Easy</button>
-          <button role="radio" aria-checked="false" data-d="medium">Medium</button>
-          <button role="radio" aria-checked="true" data-d="unbeatable" class="on">Unbeatable</button>
-        </div>
-        <p class="hint" id="diffHint"></p>
-      </section>
-      <section>
-        <h3>Scoreboard</h3>
-        <div class="scores">
-          <div><b id="sPlayer" class="cx">0</b><small>Player Wins</small></div>
-          <div><b id="sAI" class="cp">0</b><small>AI Wins</small></div>
-          <div><b id="sDraw">0</b><small>Draws</small></div>
-        </div>
-        <div class="btn-row tight"><button class="btn primary" id="newGame">New Game</button><button class="btn ghost" id="resetScore">Reset Score</button></div>
-      </section>
-    </aside>
-  </div>
-</section>
+  const moves = getAvailableMoves(b);
+  if (isMaximizing) {
+    let best = -Infinity;
+    for (let i = 0; i < moves.length; i++) {
+      b[moves[i]] = AI;
+      best = Math.max(best, minimax(b, depth + 1, false, alpha, beta, maxDepth));
+      b[moves[i]] = null;
+      alpha = Math.max(alpha, best);          // alpha updates ONLY at MAX nodes
+      if (alpha >= beta) {                    // >>> PRUNING HAPPENS HERE <<<
+        stats.pruned += moves.length - 1 - i; // remaining siblings are skipped
+        stats.pruneEvents++;
+        break;
+      }
+    }
+    return best;
+  }
+  let best = Infinity;
+  for (let i = 0; i < moves.length; i++) {
+    b[moves[i]] = HUMAN;
+    best = Math.min(best, minimax(b, depth + 1, true, alpha, beta, maxDepth));
+    b[moves[i]] = null;
+    beta = Math.min(beta, best);              // beta updates ONLY at MIN nodes
+    if (alpha >= beta) {                      // >>> PRUNING HAPPENS HERE <<<
+      stats.pruned += moves.length - 1 - i;
+      stats.pruneEvents++;
+      break;
+    }
+  }
+  return best;
+}
 
-<section id="mind" class="section">
-  <h2>Inside the AI's Mind</h2>
-  <p class="sub">Explore the logic behind every decision.</p>
-  <div class="readout">
-    <div class="metric wide"><small>Algorithm</small><b>Minimax + Alpha-Beta Pruning</b></div>
-    <div class="metric"><small>Nodes Evaluated</small><b id="mNodes">—</b></div>
-    <div class="metric"><small>Branches Pruned</small><b id="mPruned">—</b></div>
-    <div class="metric"><small>Search Depth</small><b id="mDepth">—</b></div>
-    <div class="metric"><small>Selected Move</small><b id="mMove">—</b></div>
-    <div class="metric"><small>Minimax Score</small><b id="mScore">—</b></div>
-  </div>
-  <p class="empty" id="mEmpty">Search statistics will appear after the AI evaluates the board.</p>
-  <button class="btn primary" id="explainBtn" disabled>Explore AI Decision</button>
-</section>
+// Root of the search: tries every AI move, records real candidate data, returns the best one.
+function getBestMove(b, maxDepth) {
+  stats = { nodes: 0, pruned: 0, pruneEvents: 0, maxDepth: 0 };
+  const candidates = [];
+  let alpha = -Infinity, beta = Infinity, bestScore = -Infinity, bestMove = null;
+  for (const move of getAvailableMoves(b)) {
+    const nodesBefore = stats.nodes, prunedBefore = stats.pruned, alphaIn = alpha;
+    b[move] = AI;
+    const score = minimax(b, 1, false, alpha, beta, maxDepth);
+    b[move] = null;
+    // After the first move, a score <= alpha is only an upper bound (the subtree was cut short).
+    candidates.push({ move, score, alphaIn, beta, exact: candidates.length === 0 || score > alphaIn,
+      nodes: stats.nodes - nodesBefore, pruned: stats.pruned - prunedBefore });
+    if (score > bestScore) { bestScore = score; bestMove = move; }
+    alpha = Math.max(alpha, bestScore);
+  }
+  stats.nodes++;                                // count the root node itself
+  lastSearch = { move: bestMove, score: bestScore, candidates, maxDepth, ...stats };
+  return bestMove;
+}
 
-<dialog id="modal" aria-labelledby="mTitle">
-  <div class="modal-in"><h3 id="mTitle">Latest AI decision</h3><div id="mBody"></div><button class="btn ghost" id="closeModal">Close</button></div>
-</dialog>
+function chooseAIMove() {
+  const free = getAvailableMoves(board);
+  const random = () => free[Math.floor(Math.random() * free.length)];
+  if (difficulty === "easy" && Math.random() < 0.8) {
+    lastSearch = { random: true, move: random() };
+    return lastSearch.move;
+  }
+  return getBestMove(board, difficulty === "unbeatable" ? 9 : 2);
+}
 
-<section id="how" class="section">
-  <h2>How the AI Thinks</h2>
-  <div class="steps">
-    <article class="step"><span class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.5"/><circle cx="5" cy="19" r="2.5"/><circle cx="19" cy="19" r="2.5"/><path d="M12 8l-6 9M12 8l6 9"/></svg></span><span class="num">01</span><h3>Explore</h3><p>The algorithm examines possible future moves.</p></article>
-    <article class="step"><span class="ico"><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></span><span class="num">02</span><h3>Evaluate</h3><p>Minimax determines the outcome of possible game states.</p></article>
-    <article class="step"><span class="ico"><svg viewBox="0 0 24 24"><path d="M4 20L20 4M14 4h6v6"/></svg></span><span class="num">03</span><h3>Optimize</h3><p>Alpha-Beta Pruning skips branches that cannot change the optimal decision.</p></article>
-  </div>
-  <div class="tree-box panel">
-    <h3>Illustrative example <small>A fixed demo tree, not live game data</small></h3>
-    <svg id="tree" viewBox="0 0 500 270" role="img" aria-label="Alpha-beta pruning example tree">
-      <g class="edges"><line x1="250" y1="55" x2="130" y2="120"/><line x1="250" y1="55" x2="370" y2="120"/><line x1="130" y1="150" x2="70" y2="215"/><line x1="130" y1="150" x2="190" y2="215"/><line x1="370" y1="150" x2="310" y2="215"/><line class="e4" x1="370" y1="150" x2="430" y2="215"/></g>
-      <g class="nd"><rect x="190" y="25" width="120" height="32" rx="10"/><text id="tR" x="250" y="46"></text></g>
-      <g class="nd"><rect x="70" y="120" width="120" height="32" rx="10"/><text id="tA" x="130" y="141"></text></g>
-      <g class="nd"><rect x="310" y="120" width="120" height="32" rx="10"/><text id="tB" x="370" y="141"></text></g>
-      <g class="lf" id="l0"><rect x="45" y="215" width="50" height="30" rx="15"/><text x="70" y="235">3</text></g>
-      <g class="lf" id="l1"><rect x="165" y="215" width="50" height="30" rx="15"/><text x="190" y="235">5</text></g>
-      <g class="lf" id="l2"><rect x="285" y="215" width="50" height="30" rx="15"/><text x="310" y="235">2</text></g>
-      <g class="lf" id="l3"><rect x="405" y="215" width="50" height="30" rx="15"/><text x="430" y="235">9</text></g>
-    </svg>
-    <p class="caption" id="treeCap" aria-live="polite"></p>
-    <div class="btn-row tight center"><button class="btn ghost" id="treePrev">Back</button><button class="btn primary" id="treeNext">Next step</button></div>
-  </div>
-</section>
+/* ===== UI ===== */
+function buildBoard() {
+  const el = $("board"); el.innerHTML = "";
+  for (let i = 0; i < 9; i++) {
+    const c = document.createElement("button");
+    c.className = "cell"; c.dataset.i = i; c.setAttribute("role", "gridcell");
+    c.addEventListener("click", () => humanMove(i));
+    el.appendChild(c);
+  }
+}
+function render() {
+  document.querySelectorAll(".cell").forEach((c, i) => {
+    const v = board[i];
+    c.className = "cell" + (v ? " " + v.toLowerCase() : "") + (i === lastMove ? " last" : "");
+    if ((c.dataset.v || "") !== (v || "")) { c.innerHTML = v ? MARK[v] : ""; c.dataset.v = v || ""; }
+    c.disabled = !!v || gameOver || aiBusy;
+    c.setAttribute("aria-label", `Row ${Math.floor(i/3)+1}, column ${i%3+1}, ${v || "empty"}`);
+  });
+}
+function setTurn(isAI) {
+  const t = $("turnLabel");
+  t.textContent = isAI ? "AI'S TURN" : "YOUR TURN"; t.classList.toggle("ai", isAI);
+  $("plHuman").classList.toggle("active", !isAI); $("plAI").classList.toggle("active", isAI);
+}
+const say = msg => { $("status").textContent = msg; };
+function updateScores() {
+  $("sPlayer").textContent = scores.player; $("sAI").textContent = scores.ai; $("sDraw").textContent = scores.draw;
+}
 
-<section id="about" class="section">
-  <h2>Understanding the Intelligence</h2>
-  <dl class="about-grid">
-    <div><dt>What is Minimax?</dt><dd>A decision-making algorithm for two-player games. It assumes both players play their best and picks the move with the best guaranteed result.</dd></div>
-    <div><dt>What is MAX?</dt><dd>The player (the AI) that tries to maximize the evaluation score.</dd></div>
-    <div><dt>What is MIN?</dt><dd>The player (the human) that tries to minimize the evaluation score.</dd></div>
-    <div><dt>What is Alpha?</dt><dd>The best value MAX can guarantee so far along the current path.</dd></div>
-    <div><dt>What is Beta?</dt><dd>The best value MIN can guarantee so far along the current path.</dd></div>
-    <div><dt>What is Alpha-Beta Pruning?</dt><dd>An optimization that stops exploring a branch once it can no longer change the final decision. It gives the same answer as Minimax with less work.</dd></div>
-    <div><dt>Pruning condition</dt><dd><code>alpha &gt;= beta</code></dd></div>
-    <div><dt>Time complexity</dt><dd>Plain Minimax: <code>O(b^d)</code>. Alpha-Beta in the best case with favorable move ordering: <code>O(b^(d/2))</code>. The real number of nodes explored depends on the board position and move ordering.</dd></div>
-  </dl>
-</section>
-</main>
+function humanMove(i) {
+  if (gameOver || aiBusy || board[i]) return;
+  board[i] = HUMAN; lastMove = i;
+  if (finishIfOver()) return;
+  aiBusy = true; setTurn(true); say("The AI is calculating its next move...");
+  render();
+  aiTimer = setTimeout(aiMove, 500);
+}
+function aiMove() {
+  const move = chooseAIMove();
+  board[move] = AI; lastMove = move; aiBusy = false;
+  showStats();
+  if (!finishIfOver()) { setTurn(false); say("Your turn. Pick an empty cell."); render(); }
+}
+function finishIfOver() {
+  const r = checkWinner(board);
+  if (!r) { render(); return false; }
+  gameOver = true; aiBusy = false; render();
+  r.line.forEach(i => document.querySelectorAll(".cell")[i].classList.add("win"));
+  if (r.line.length) showStrike(r.line, r.winner);
+  if (r.winner === HUMAN) { scores.player++; say("Victory! You outsmarted the AI."); }
+  else if (r.winner === AI) { scores.ai++; say("AI Wins! Better luck next time."); }
+  else { scores.draw++; say("It's a Draw!"); }
+  updateScores(); setTurn(false); $("turnLabel").textContent = "GAME OVER";
+  const kind = r.winner === HUMAN ? "win" : r.winner === AI ? "lose" : "draw";
+  resultTimer = setTimeout(() => {          // short delay so the winning line is visible first
+    $("result").className = "result " + kind;
+    $("resTitle").textContent = { win: "Victory", lose: "Defeat", draw: "Draw" }[kind];
+    $("resMsg").textContent = $("status").textContent;
+    $("result").hidden = false; $("again").focus();
+  }, 1200);
+  return true;
+}
+function newGame() {
+  clearTimeout(aiTimer); clearTimeout(resultTimer); $("result").hidden = true; $("strike").setAttribute("class", "");
+  board = Array(9).fill(null); gameOver = false; aiBusy = false; lastMove = null;
+  setTurn(false); say("Make your move. You play X."); render();
+}
 
-<footer class="footer">
-  <div><strong>NEUROPLAY</strong><p>Built to demonstrate intelligent game playing.</p></div>
-  <nav><a href="#play">Play Game</a><a href="#how">How It Works</a><a href="#about">About AI</a></nav>
-  <small>HTML • CSS • JavaScript</small>
-</footer>
-<script src="script.js"></script>
-</body>
-</html>
+/* ===== Dashboard + decision explanation ===== */
+function showStats() {
+  $("explainBtn").disabled = false; $("mEmpty").hidden = true;
+  const s = lastSearch, rc = i => `Row ${Math.floor(i/3)+1}, Col ${i%3+1}`;
+  $("mMove").textContent = rc(s.move);
+  if (s.random) {
+    ["mNodes","mPruned","mDepth","mScore"].forEach(id => $(id).textContent = "N/A");
+    return;
+  }
+  setNum("mNodes", s.nodes); setNum("mPruned", s.pruned);
+  setNum("mDepth", s.maxDepth); setNum("mScore", s.score);
+}
+function explain() {
+  const s = lastSearch, rc = i => `R${Math.floor(i/3)+1} C${i%3+1}`;
+  let html;
+  if (s.random) {
+    html = `<p>On ${difficulty} difficulty this move was chosen <b>randomly</b> (${rc(s.move)}), so no Minimax search ran and there are no scores or pruning data.</p>`;
+  } else {
+    const rows = s.candidates.map(c => `<tr class="${c.move === s.move ? "pick" : ""}"><td>${rc(c.move)}</td>
+      <td>${c.exact ? "" : "≤ "}${c.score}</td><td>${c.alphaIn === -Infinity ? "-∞" : c.alphaIn}</td><td>${c.beta === Infinity ? "+∞" : c.beta}</td><td>${c.nodes}</td><td>${c.pruned}</td></tr>`).join("");
+    const prune = s.pruneEvents > 0
+      ? `Pruning occurred ${s.pruneEvents} time(s) (alpha ≥ beta), skipping ${s.pruned} child branch(es) that could not change the decision.`
+      : `No pruning occurred during this particular search.`;
+    html = `<p>Searched to depth ${s.maxDepth} · ${s.nodes} nodes evaluated. Selected <b>${rc(s.move)}</b> with score <b>${s.score}</b>.</p>
+      <table><thead><tr><th>Candidate</th><th>Score</th><th>Alpha in</th><th>Beta in</th><th>Nodes</th><th>Pruned</th></tr></thead><tbody>${rows}</tbody></table>
+      <p>"≤" marks a score that is only an upper bound because that branch was cut short by pruning; it is already known to be no better than the best move so far. ${prune}</p>`;
+  }
+  $("mBody").innerHTML = html; $("modal").showModal();
+}
+
+/* ===== Illustrative tree (fixed example, not live data) ===== */
+const TREE = [
+  { t: "MAX root starts with α = -∞, β = +∞. It will pick the larger of its two MIN children.", R: "MAX α=-∞ β=+∞", A: "MIN", B: "MIN", seen: 0 },
+  { t: "Left MIN node visits leaf 3: β = 3 (MIN keeps the smallest value seen).", R: "MAX α=-∞ β=+∞", A: "MIN β=3", B: "MIN", seen: 1 },
+  { t: "Leaf 5 is not smaller, so the left MIN node's value is 3. The root now has α = 3.", R: "MAX α=3 β=+∞", A: "MIN = 3", B: "MIN", seen: 2 },
+  { t: "Right MIN node inherits α = 3 and visits leaf 2: β = 2.", R: "MAX α=3 β=+∞", A: "MIN = 3", B: "MIN α=3 β=2", seen: 3 },
+  { t: "α (3) ≥ β (2): PRUNE leaf 9. This MIN node is at most 2, so MAX would never choose it over 3. The root value is 3.", R: "MAX = 3", A: "MIN = 3", B: "MIN ≤ 2 ✂", seen: 3, cut: true }
+];
+let treeStep = 0;
+function drawTree() {
+  const s = TREE[treeStep];
+  $("tR").textContent = s.R; $("tA").textContent = s.A; $("tB").textContent = s.B;
+  for (let i = 0; i < 4; i++) {
+    const l = $("l" + i);
+    l.classList.toggle("seen", i < s.seen);
+    l.classList.toggle("pruned", !!s.cut && i === 3);
+  }
+  document.querySelector(".e4").classList.toggle("cut", !!s.cut);
+  $("treeCap").textContent = `Step ${treeStep + 1} of ${TREE.length}: ${s.t}`;
+  $("treePrev").disabled = treeStep === 0; $("treeNext").disabled = treeStep === TREE.length - 1;
+}
+
+/* ===== Wiring ===== */
+document.querySelectorAll(".seg button").forEach(b => b.addEventListener("click", () => {
+  difficulty = b.dataset.d;
+  $("seg").style.setProperty("--i", [...b.parentNode.querySelectorAll("button")].indexOf(b));   // slides the thumb
+  document.querySelectorAll(".seg button").forEach(x => { x.classList.toggle("on", x === b); x.setAttribute("aria-checked", x === b); });
+  $("diffHint").textContent = HINTS[difficulty];
+  newGame();                                   // changing difficulty starts a fresh round (scores kept)
+}));
+$("newGame").addEventListener("click", newGame);
+$("again").addEventListener("click", newGame);
+let resetArmed = false, resetTimer;
+$("resetScore").addEventListener("click", e => {  // two-click confirmation, no popup
+  if (!resetArmed) { resetArmed = true; e.target.textContent = "Click again to confirm";
+    resetTimer = setTimeout(() => { resetArmed = false; e.target.textContent = "Reset Score"; }, 3000); return; }
+  clearTimeout(resetTimer); resetArmed = false; e.target.textContent = "Reset Score";
+  scores = { player: 0, ai: 0, draw: 0 }; updateScores();
+});
+$("explainBtn").addEventListener("click", explain);
+$("closeModal").addEventListener("click", () => $("modal").close());
+$("treePrev").addEventListener("click", () => { treeStep--; drawTree(); });
+$("treeNext").addEventListener("click", () => { treeStep++; drawTree(); });
+$("menuBtn").addEventListener("click", () => {
+  const open = $("nav").classList.toggle("open"); $("menuBtn").setAttribute("aria-expanded", open);
+});
+$("nav").addEventListener("click", () => { $("nav").classList.remove("open"); $("menuBtn").setAttribute("aria-expanded", false); });
+
+buildPreview(); buildBoard(); newGame(); updateScores(); drawTree(); $("diffHint").textContent = HINTS[difficulty];
+
+/* Header background on scroll + highlight the nav link of the section in view */
+const hdr = $("hdr");
+addEventListener("scroll", () => hdr.classList.toggle("scrolled", scrollY > 8), { passive: true });
+const spy = new IntersectionObserver(entries => entries.forEach(e => {
+  if (!e.isIntersecting) return;
+  const id = e.target.id === "mind" ? "play" : e.target.id;
+  document.querySelectorAll(".nav a").forEach(a => a.classList.toggle("active", a.getAttribute("href") === "#" + id));
+}), { rootMargin: "-45% 0px -50% 0px" });
+document.querySelectorAll("main section").forEach(sec => spy.observe(sec));
